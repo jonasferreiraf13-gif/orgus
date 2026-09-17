@@ -4,14 +4,14 @@ Este projeto deve ser publicado como **Cloudflare Worker**, e não como Cloudfla
 
 - D1 para produtos, permissões, documentos e mensagens;
 - R2 para imagens de produtos, catálogos e relatórios em PDF;
-- Cloudflare Access para proteger o painel administrativo fora do ambiente ChatGPT Sites.
+- autenticação própria por e-mail e senha para proteger o painel administrativo.
 
 ## 1. Pré-requisitos
 
 - Conta no GitHub;
 - Conta na Cloudflare;
 - Node.js 22 ou superior e pnpm 11 para a configuração inicial;
-- Um domínio gerenciado pela Cloudflare para usar o painel administrativo com Cloudflare Access.
+- Acesso às configurações do Worker para cadastrar a senha administrativa como segredo.
 
 ## 2. Enviar o código para o GitHub
 
@@ -107,22 +107,27 @@ No Worker, abra **Settings > Domains & Routes** e adicione `orgus.com.br`. Essa 
 
 ## 7. Proteger o painel administrativo
 
-O site público deve continuar aberto. Proteja somente:
+O painel usa o e-mail fixo `admin@orgus.com.br`. A senha nunca deve ser colocada no Git, em arquivos `.env` versionados ou no código-fonte.
 
-- `seudominio.com/admin*`
-- `seudominio.com/api/admin*`
+No painel da Cloudflare:
 
-No painel **Zero Trust**:
+1. Abra **Workers & Pages** e selecione o Worker `orgus-site`.
+2. Vá a **Settings > Variables and Secrets**.
+3. Clique em **Add**.
+4. Nome: `ADMIN_PASSWORD`.
+5. Tipo: **Secret**.
+6. Valor: a senha administrativa escolhida.
+7. Salve e publique a nova versão, caso o painel solicite.
 
-1. Vá a **Access controls > Applications**.
-2. Crie uma aplicação **Self-hosted and private**.
-3. Adicione os dois caminhos acima como hostnames/caminhos protegidos. Se o painel pedir uma aplicação por caminho, crie duas com a mesma política.
-4. Crie uma política **Allow** apenas para `contato@orgus.com.br`.
-5. Escolha o provedor de identidade. Para um único administrador, o código por e-mail da Cloudflare é suficiente; Google ou Microsoft também funcionam.
+Também é possível cadastrar pelo terminal, depois de executar `pnpm run build:cloudflare`:
 
-Na primeira entrada em `/admin`, clique em **Ativar meu acesso**. A partir daí esse usuário poderá cadastrar e editar produtos, subir/remover PDFs e consultar mensagens.
+```bash
+pnpm exec wrangler secret put ADMIN_PASSWORD --config dist/server/wrangler.json
+```
 
-Importante: não deixe `/api/admin*` fora da proteção do Access. O código também verifica o e-mail administrativo, mas a barreira do Access deve existir na borda.
+O comando solicitará o valor sem exibi-lo na tela. Depois acesse `/admin` e entre com `admin@orgus.com.br`. A sessão permanece válida por 12 horas e é encerrada automaticamente quando a senha é alterada.
+
+Importante: `ADMIN_PASSWORD` é um segredo de execução do Worker. Não o cadastre somente nas variáveis de build do GitHub e não adicione a senha real ao arquivo `cloudflare.env.example`.
 
 ## 8. Atualizações futuras
 
@@ -152,13 +157,14 @@ Depois que `https://orgus.com.br` estiver publicado e acessível ao público:
 3. Em **Sitemaps**, envie `https://orgus.com.br/sitemap.xml`.
 4. Use **Inspeção de URL** na página inicial e solicite a indexação.
 
-Não bloqueie o site público com Cloudflare Access. A proteção deve valer somente para `/admin*` e `/api/admin*`, ou os robôs do Google não conseguirão acessar as páginas.
+Não proteja o site público inteiro com uma tela de autenticação, ou os robôs do Google não conseguirão acessar as páginas. O painel `/admin` e suas APIs já exigem a sessão administrativa própria.
 
 ## 10. Diagnóstico rápido
 
 - Erro de banco: confirme que o binding D1 se chama `DB` e que o `database_id` está correto.
 - Imagens ou PDFs não enviam: confirme que o binding R2 se chama `BUCKET` e aponta para `orgus-files`.
-- Painel redireciona ou nega acesso: confirme a proteção dos dois caminhos e o e-mail `contato@orgus.com.br` na política do Access.
+- Painel informa que a senha não está configurada: confirme se `ADMIN_PASSWORD` foi salvo como segredo de runtime no Worker correto.
+- Login informa credenciais incorretas: use exatamente `admin@orgus.com.br` e confira se a senha digitada é idêntica ao segredo cadastrado.
 - Uma página abre, mas os links não navegam: limpe o cache da publicação e confirme que o último commit foi implantado.
 
 ## Referências oficiais
@@ -167,4 +173,4 @@ Não bloqueie o site público com Cloudflare Access. A proteção deve valer som
 - Cloudflare D1: https://developers.cloudflare.com/d1/get-started/
 - Migrações D1: https://developers.cloudflare.com/d1/reference/migrations/
 - R2 em Workers: https://developers.cloudflare.com/r2/api/workers/workers-api-usage/
-- Cloudflare Access: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/
+- Secrets no Wrangler: https://developers.cloudflare.com/workers/configuration/secrets/

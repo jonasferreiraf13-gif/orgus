@@ -4,7 +4,7 @@ import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { Archive, Box, FileText, LogOut, Mail, MessageSquare, Pencil, Plus, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
+import type { AdminUser } from "@/lib/admin-auth";
 import type { ContactMessage, DocumentRecord, Product, ProductImage } from "@/lib/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { getLineByValue } from "@/lib/site";
 
 type AdminProduct = Product & { images: (ProductImage & { product_id: number })[] };
-type Props = { user: ChatGPTUser; products: AdminProduct[]; catalogs: DocumentRecord[]; transparency: DocumentRecord[]; messages: ContactMessage[]; signOutPath: string };
+type Props = { user: AdminUser; products: AdminProduct[]; catalogs: DocumentRecord[]; transparency: DocumentRecord[]; messages: ContactMessage[]; signOutPath: string };
 type ProductFormState = { id?: number; line: string; brand: string; model: string; code: string; side: string; description: string; active: boolean; images: (ProductImage & { product_id: number })[] };
 const emptyProduct: ProductFormState = { line: "leve", brand: "", model: "", code: "", side: "", description: "", active: true, images: [] };
 

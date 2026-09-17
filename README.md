@@ -1,6 +1,6 @@
 # Site Orgus Indústria
 
-Para publicar este projeto no GitHub e na Cloudflare Workers, siga o guia [GUIA-HOSPEDAGEM-CLOUDFLARE.md](./GUIA-HOSPEDAGEM-CLOUDFLARE.md). O site usa D1 no binding `DB`, R2 no binding `BUCKET` e protege o painel `/admin` com autenticação da plataforma.
+Para publicar este projeto no GitHub e na Cloudflare Workers, siga o guia [GUIA-HOSPEDAGEM-CLOUDFLARE.md](./GUIA-HOSPEDAGEM-CLOUDFLARE.md). O site usa D1 no binding `DB`, R2 no binding `BUCKET` e protege o painel `/admin` com e-mail, senha e sessão assinada.
 
 ## Base técnica
 
@@ -43,7 +43,7 @@ Local tool usage metrics are disabled by default. Set `WRANGLER_SEND_METRICS=tru
 ## Included Shape
 
 - edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
+- `lib/admin-auth.ts` implements the password-protected administrative session
 - `.openai/hosting.json` declares optional Sites D1 and R2 bindings
 - `vite.config.ts` simulates declared bindings for local development
 - `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
@@ -52,55 +52,9 @@ Local tool usage metrics are disabled by default. Set `WRANGLER_SEND_METRICS=tru
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed
 
-## Workspace Auth Headers
+## Admin authentication
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Use it as the durable user key; use email and name for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive `oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty `name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by `oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use the returned `userId` as the stable user key for user-owned records; do not use email as a durable identifier.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send anonymous visitors through Sign in with ChatGPT.
-- In a Server Component, start sign-in with `<a href={chatGPTSignInPath(returnTo)} target="_top">`. The auth helper module is server-only; do not import it into a Client Component.
-- Do not use `fetch`, XHR, a client-side router, or a framework link that can prefetch the sign-in route. SIWC must start as a top-level navigation.
-- Never request the AuthAPI authorization endpoint directly. The dispatch-owned `/signin-with-chatgpt` route must start the SIWC flow.
-- Use `chatGPTSignOutPath(returnTo)` for browser sign-out links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the OAuth cookies, and identity header injection. Do not implement app routes for those reserved paths. Routes that do not import and call the helper remain anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the Sites hosting platform's access policy controls for workspace-wide restrictions, or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write actions tied to the current ChatGPT user. Leave public content anonymous.
+The `/admin` page uses the fixed login `admin@orgus.com.br` and the Worker runtime secret `ADMIN_PASSWORD`. The secret is never committed. Successful logins receive a signed, HTTP-only, secure cookie that expires after 12 hours; changing the secret invalidates existing sessions.
 
 ## Local D1 migrations
 
